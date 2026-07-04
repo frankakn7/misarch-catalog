@@ -1,0 +1,3 @@
+CREATE INDEX idx_product_is_publicly_visible ON ProductEntity(isPubliclyVisible);
+
+CREATE INDEX idx_product_variant_is_publicly_visible ON ProductVariantEntity(isPubliclyVisible);
