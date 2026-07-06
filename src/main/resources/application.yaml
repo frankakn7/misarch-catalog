@@ -17,3 +17,8 @@ graphql:
   packages: org.misarch.catalog
   federation:
     enabled: true
+logging:
+  level:
+    io.r2dbc.pool: ${R2DBC_POOL_LOG_LEVEL:WARN}
+    io.r2dbc.postgresql: ${R2DBC_POSTGRES_LOG_LEVEL:WARN}
+    org.misarch.catalog.graphql: ${CATALOG_LOG_LEVEL:WARN}

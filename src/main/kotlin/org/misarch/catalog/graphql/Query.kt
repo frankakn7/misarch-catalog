@@ -12,6 +12,7 @@ import org.misarch.catalog.graphql.model.Product
 import org.misarch.catalog.graphql.model.connection.*
 import org.misarch.catalog.persistence.repository.CategoryRepository
 import org.misarch.catalog.persistence.repository.ProductRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.*
 import java.util.concurrent.CompletableFuture
@@ -28,6 +29,8 @@ class Query(
     private val categoryRepository: CategoryRepository
 ) : Query {
 
+    private val logger = LoggerFactory.getLogger(Query::class.java)
+
     @GraphQLDescription("Get all products")
     suspend fun products(
         @GraphQLDescription("Number of items to return")
@@ -40,7 +43,11 @@ class Query(
         filter: ProductFilter? = null,
         dfe: DataFetchingEnvironment
     ): ProductConnection {
-        return ProductConnection(first, skip, filter, null, orderBy, productRepository, dfe.authorizedUserOrNull)
+        val start = System.currentTimeMillis()
+        logger.info("products query start: first={}, skip={}, isPubliclyVisible={}", first, skip, filter?.isPubliclyVisible)
+        val connection = ProductConnection(first, skip, filter, null, orderBy, productRepository, dfe.authorizedUserOrNull)
+        logger.info("products query connection built in {}ms", System.currentTimeMillis() - start)
+        return connection
     }
 
     @GraphQLDescription("Get all categories")

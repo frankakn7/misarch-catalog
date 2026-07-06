@@ -13,6 +13,7 @@ import com.querydsl.sql.SQLQuery
 import kotlinx.coroutines.reactor.awaitSingle
 import org.misarch.catalog.persistence.model.BaseEntity
 import org.misarch.catalog.graphql.AuthorizedUser
+import org.slf4j.LoggerFactory
 
 /**
  * A GraphQL connection that is backed by a QueryDSL repository
@@ -45,10 +46,14 @@ abstract class BaseConnection<T, D : BaseEntity<T>>(
      */
     protected abstract val primaryKey: ComparableExpression<*>
 
+    protected val logger = LoggerFactory.getLogger(javaClass)
+
     @GraphQLDescription("The total amount of items in this connection")
     @Suppress("UNCHECKED_CAST")
     suspend fun totalCount(): Int {
-        return repository.query {
+        val start = System.currentTimeMillis()
+        logger.debug("totalCount query start")
+        val result = repository.query {
             val baseQuery =
                 it.select(Expressions.numberOperation(Long::class.javaObjectType, AggOps.COUNT_AGG, primaryKey))
                     .from(entity)
@@ -60,12 +65,16 @@ abstract class BaseConnection<T, D : BaseEntity<T>>(
                 joinedQuery
             }
         }.first().awaitSingle().toInt()
+        logger.debug("totalCount query done in {}ms, result={}", System.currentTimeMillis() - start, result)
+        return result
     }
 
     @GraphQLDescription("The resulting items.")
     @Suppress("UNCHECKED_CAST")
     suspend fun nodes(): List<T> {
-        return repository.query {
+        val start = System.currentTimeMillis()
+        logger.debug("nodes query start: first={}, skip={}", first, skip)
+        val result = repository.query {
             val baseQuery = it.select(repository.entityProjection()).from(entity)
             val joinedQuery = applyJoin(baseQuery) as SQLQuery<D>
             val condition = buildCondition()
@@ -75,14 +84,18 @@ abstract class BaseConnection<T, D : BaseEntity<T>>(
                 joinedQuery
             }.orderBy(*order).offset(skip?.toLong() ?: 0).limit(first?.toLong() ?: Long.MAX_VALUE)
         }.all().collectList().awaitSingle().map { it.toDTO() }
+        logger.debug("nodes query done in {}ms, count={}", System.currentTimeMillis() - start, result.size)
+        return result
     }
 
     @GraphQLDescription("Whether this connection has a next page")
     suspend fun hasNextPage(): Boolean {
+        val start = System.currentTimeMillis()
         if (first == null) {
             return false
         }
-        return repository.query {
+        logger.debug("hasNextPage query start: first={}, skip={}", first, skip)
+        val result = repository.query {
             val baseQuery = it.select(repository.entityProjection()).from(entity)
             val joinedQuery = applyJoin(baseQuery)
             val condition = buildCondition()
@@ -92,6 +105,8 @@ abstract class BaseConnection<T, D : BaseEntity<T>>(
                 joinedQuery
             }.offset(first.toLong() + (skip ?: 0)).limit(1)
         }.all().hasElements().awaitSingle()
+        logger.debug("hasNextPage query done in {}ms, result={}", System.currentTimeMillis() - start, result)
+        return result
     }
 
     /**
